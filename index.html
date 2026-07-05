@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autonomous AI Document Agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    body { background: #f3f6fb; color: #1f2937; padding: 40px 20px; }
+    .container { max-width: 960px; margin: 0 auto; background: #fff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #1d4ed8, #2563eb); color: #fff; padding: 28px; }
+    .header h1 { font-size: 28px; margin-bottom: 8px; }
+    .header p { line-height: 1.5; opacity: 0.95; }
+    .content { padding: 28px; }
+    label { display: block; font-weight: 700; margin-bottom: 10px; }
+    textarea {
+      width: 100%; min-height: 170px; padding: 14px; border: 1px solid #d1d5db;
+      border-radius: 12px; resize: vertical; font-size: 15px; outline: none;
+    }
+    textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+    .button-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    button {
+      border: none; border-radius: 10px; padding: 12px 18px; cursor: pointer;
+      font-size: 15px; font-weight: 700;
+    }
+    .primary-btn { background: #2563eb; color: #fff; }
+    .secondary-btn { background: #e5e7eb; color: #111827; }
+    .status { margin-top: 18px; padding: 12px 14px; border-radius: 10px; display: none; font-size: 14px; }
+    .status.info { display: block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .status.error { display: block; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .result-card {
+      margin-top: 28px; border: 1px solid #e5e7eb; border-radius: 14px;
+      padding: 24px; background: #fafafa; display: none;
+    }
+    .result-card h2 { margin-bottom: 12px; font-size: 22px; }
+    .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .meta-box { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; }
+    .meta-box .label { font-size: 12px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; font-weight: 700; }
+    .meta-box .value { font-size: 15px; font-weight: 600; color: #111827; word-break: break-word; }
+    .section { margin-top: 20px; }
+    .section h3 { margin-bottom: 10px; font-size: 18px; }
+    ul { padding-left: 20px; line-height: 1.7; }
+    .download-link {
+      display: inline-block; margin-top: 18px; text-decoration: none; background: #16a34a;
+      color: white; padding: 12px 16px; border-radius: 10px; font-weight: 700;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Autonomous AI Document Agent</h1>
+      <p>Submit a business request and generate a Word document.</p>
+    </div>
+
+    <div class="content">
+      <label for="requestInput">Enter your request</label>
+      <textarea id="requestInput" placeholder="Example: Create meeting minutes for a product kickoff meeting for a mobile banking app."></textarea>
+
+      <div class="button-row">
+        <button class="primary-btn" id="generateBtn">Generate Document</button>
+        <button class="secondary-btn" id="sampleProposalBtn">Sample Proposal</button>
+        <button class="secondary-btn" id="sampleMeetingBtn">Sample Meeting Minutes</button>
+      </div>
+
+      <div id="statusBox" class="status"></div>
+
+      <div id="resultCard" class="result-card">
+        <h2 id="resultTitle">Generated Document</h2>
+
+        <div class="meta">
+          <div class="meta-box">
+            <div class="label">Document Type</div>
+            <div class="value" id="docType">-</div>
+          </div>
+   
+          <div class="meta-box">
+            <div class="label">Status</div>
+            <div class="value" id="statusValue">-</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Assumptions</h3>
+          <ul id="assumptionsList"></ul>
+        </div>
+
+        <div class="section">
+          <h3>Execution Plan</h3>
+          <ul id="planList"></ul>
+        </div>
+
+        <div id="meetingFields" class="hidden">
+          <div class="section"><h3>Attendees</h3><ul id="attendeesList"></ul></div>
+          <div class="section"><h3>Agenda</h3><ul id="agendaList"></ul></div>
+          <div class="section"><h3>Key Discussion Points</h3><ul id="discussionList"></ul></div>
+          <div class="section"><h3>Decisions Made</h3><ul id="decisionsList"></ul></div>
+          <div class="section"><h3>Action Items</h3><ul id="actionItemsList"></ul></div>
+          <div class="section"><h3>Next Steps</h3><ul id="nextStepsList"></ul></div>
+        </div>
+
+        <a id="downloadBtn" class="download-link" href="#" target="_blank">Download Word Document</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const API_BASE = "http://127.0.0.1:8000";
+
+      const el = (id) => document.getElementById(id);
+
+      const requestInput = el("requestInput");
+      const generateBtn = el("generateBtn");
+      const sampleProposalBtn = el("sampleProposalBtn");
+      const sampleMeetingBtn = el("sampleMeetingBtn");
+      const statusBox = el("statusBox");
+      const resultCard = el("resultCard");
+      const resultTitle = el("resultTitle");
+      const docType = el("docType");
+      const fallbackUsed = el("fallbackUsed");
+      const statusValue = el("statusValue");
+      const assumptionsList = el("assumptionsList");
+      const planList = el("planList");
+      const downloadBtn = el("downloadBtn");
+
+      const meetingFields = el("meetingFields");
+      const attendeesList = el("attendeesList");
+      const agendaList = el("agendaList");
+      const discussionList = el("discussionList");
+      const decisionsList = el("decisionsList");
+      const actionItemsList = el("actionItemsList");
+      const nextStepsList = el("nextStepsList");
+
+      console.log("DOM check:", {
+        requestInput, generateBtn, resultTitle, docType, fallbackUsed, statusValue
+      });
+
+      sampleProposalBtn?.addEventListener("click", () => {
+        if (requestInput) {
+          requestInput.value = "Create a project proposal for implementing an AI chatbot for a retail company to improve customer support.";
+        }
+      });
+
+      sampleMeetingBtn?.addEventListener("click", () => {
+        if (requestInput) {
+          requestInput.value = "Create meeting minutes for a product kickoff meeting for a mobile banking app. Include attendees, agenda, key discussion points, decisions made, action items, and next steps. Assume some details if missing.";
+        }
+      });
+
+      generateBtn?.addEventListener("click", async () => {
+        const requestText = requestInput?.value?.trim();
+
+        if (!requestText) {
+          showStatus("Please enter a request first.", "error");
+          return;
+        }
+
+        resetUI();
+        showStatus("Generating document, please wait...", "info");
+        generateBtn.disabled = true;
+        generateBtn.textContent = "Generating...";
+
+        try {
+          const response = await fetch(`${API_BASE}/agent`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json"
+            },
+            body: JSON.stringify({ request: requestText })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Request failed: ${response.status} ${errorText}`);
+          }
+
+          const data = await response.json();
+          console.log("API response:", data);
+
+          renderResult(data);
+          showStatus("Document generated successfully.", "info");
+        } catch (error) {
+          console.error(error);
+          showStatus(`Something went wrong: ${error.message}`, "error");
+        } finally {
+          generateBtn.disabled = false;
+          generateBtn.textContent = "Generate Document";
+        }
+      });
+
+      function resetUI() {
+        if (resultCard) resultCard.style.display = "none";
+        if (meetingFields) meetingFields.classList.add("hidden");
+        clearList(assumptionsList);
+        clearList(planList);
+        clearList(attendeesList);
+        clearList(agendaList);
+        clearList(discussionList);
+        clearList(decisionsList);
+        clearList(actionItemsList);
+        clearList(nextStepsList);
+      }
+
+      function clearList(node) {
+        if (node) node.innerHTML = "";
+      }
+
+      function appendList(node, items) {
+        if (!node) return;
+        node.innerHTML = "";
+        if (!items) return;
+        if (!Array.isArray(items)) items = [items];
+
+        items.forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          node.appendChild(li);
+        });
+      }
+
+      function renderResult(data) {
+        if (resultTitle) resultTitle.textContent = data.title || "Generated Document";
+        if (docType) docType.textContent = formatDocType(data.document_type || "-");
+        if (fallbackUsed) fallbackUsed.textContent = data.used_fallback ? "Yes" : "No";
+        if (statusValue) statusValue.textContent = data.status || "-";
+
+        appendList(assumptionsList, data.assumptions || []);
+        appendList(planList, data.plan || []);
+
+        if ((data.document_type || "").toLowerCase() === "meeting_minutes") {
+          if (meetingFields) meetingFields.classList.remove("hidden");
+          appendList(attendeesList, data.attendees || []);
+          appendList(agendaList, data.agenda || []);
+          appendList(discussionList, data.key_discussion_points || []);
+          appendList(decisionsList, data.decisions_made || []);
+          appendList(actionItemsList, data.action_items || []);
+          appendList(nextStepsList, data.next_steps || []);
+        }
+
+        if (downloadBtn && data.document_path) {
+          const encodedPath = encodeURIComponent(data.document_path);
+          downloadBtn.href = `${API_BASE}/download?path=${encodedPath}`;
+        }
+
+        if (resultCard) resultCard.style.display = "block";
+      }
+
+      function formatDocType(value) {
+        return value.replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase());
+      }
+
+      function showStatus(message, type) {
+        if (!statusBox) return;
+        statusBox.className = `status ${type}`;
+        statusBox.textContent = message;
+        statusBox.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
